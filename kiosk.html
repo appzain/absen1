@@ -117,9 +117,12 @@
   <audio id="audio-success" src="https://actions.google.com/sounds/v1/ui/bell_ding.ogg" preload="auto"></audio>
   <audio id="audio-error" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
-  <script>
-    let html5QrcodeScanner = null;
-    let isProcessing = false;
+  <audio id="audio-success" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+    <script>
+      let html5QrcodeScanner = null;
+      let isProcessing = false;
+      let lastScannedCode = '';
+      let lastScannedTime = 0;
     let listLokasi = [];
     
     // Parse URL Params
@@ -238,11 +241,20 @@
     }
 
     async function onScanSuccess(decodedText, decodedResult) {
-      if(isProcessing) return;
-      isProcessing = true;
-      
-      document.getElementById('scan-feedback').classList.remove('opacity-0');
-      html5QrcodeScanner.pause();
+        if(isProcessing) return;
+        
+        // Cooldown 5 detik untuk QR Code yang sama agar tidak dobel scan
+        const now = Date.now();
+        if (decodedText === lastScannedCode && (now - lastScannedTime) < 5000) {
+            return;
+        }
+        
+        isProcessing = true;
+        lastScannedCode = decodedText;
+        lastScannedTime = now;
+        
+        document.getElementById('scan-feedback').classList.remove('opacity-0');
+        // html5QrcodeScanner.pause(); Dihapus agar kamera terus aktif
 
       const lokasiId = document.getElementById('kiosk-lokasi').value;
       
@@ -258,7 +270,9 @@
         document.getElementById('scan-feedback').classList.add('opacity-0');
          
         if(resData.status === 'success') {
-           showNotification('success', 'Berhasil!', resData.message);
+             const audioSuccess = document.getElementById('audio-success');
+             if(audioSuccess) audioSuccess.play().catch(e => console.log('Audio error:', e));
+             showNotification('success', 'Berhasil!', resData.message);
         } else {
            showNotification('error', 'Gagal', resData.message);
         }
@@ -268,12 +282,7 @@
          showNotification('error', 'Error Sistem', String(err));
       }
 
-      // Resume scanner after 2.5 seconds
-      setTimeout(() => {
-         if(html5QrcodeScanner && html5QrcodeScanner.getState() === 2) { // 2 = PAUSED
-             html5QrcodeScanner.resume();
-         }
-      }, 2500);
+      // Resume block dihapus agar tidak pause
     }
   </script>
 </body>
