@@ -16,6 +16,43 @@
     #reader video {
       transform: scaleX(-1);
     }
+  
+    /* Animasi Scanner Frame & Laser */
+    .scan-laser {
+      position: absolute;
+      width: 100%;
+      height: 3px;
+      background-color: rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 1);
+      top: 0;
+      left: 0;
+      animation: laser 2.5s infinite ease-in-out;
+      z-index: 5;
+    }
+    @keyframes laser {
+      0% { top: 5%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 95%; opacity: 0; }
+    }
+    
+    .scan-frame-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+    
+    .scan-corner {
+      position: absolute;
+      width: 40px; height: 40px;
+      border-color: #3b82f6;
+      border-style: solid;
+    }
+    .corner-tl { top: 0; left: 0; border-width: 5px 0 0 5px; border-top-left-radius: 12px; }
+    .corner-tr { top: 0; right: 0; border-width: 5px 5px 0 0; border-top-right-radius: 12px; }
+    .corner-bl { bottom: 0; left: 0; border-width: 0 0 5px 5px; border-bottom-left-radius: 12px; }
+    .corner-br { bottom: 0; right: 0; border-width: 0 5px 5px 0; border-bottom-right-radius: 12px; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
@@ -105,7 +142,17 @@
       <div id="reader-container" class="w-full h-full hidden flex flex-col items-center justify-center">
         <h2 class="text-2xl font-black text-gray-800 mb-6 text-center">ARAHKAN QR CODE KE KAMERA</h2>
         <div class="bg-white p-2 rounded-2xl shadow-xl w-full max-w-md relative">
-          <div id="reader" class="w-full rounded-xl overflow-hidden"></div>
+          <div class="relative rounded-xl overflow-hidden">
+              <div id="reader" class="w-full"></div>
+              <!-- Animasi Frame & Laser -->
+              <div class="scan-frame-overlay">
+                <div class="scan-corner corner-tl"></div>
+                <div class="scan-corner corner-tr"></div>
+                <div class="scan-corner corner-bl"></div>
+                <div class="scan-corner corner-br"></div>
+                <div class="scan-laser"></div>
+              </div>
+            </div>
           
           <!-- Scan Overlay Feedback -->
           <div id="scan-feedback" class="absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-opacity duration-300">
@@ -122,7 +169,6 @@
   <audio id="audio-success" src="https://actions.google.com/sounds/v1/ui/bell_ding.ogg" preload="auto"></audio>
   <audio id="audio-error" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
-  <audio id="audio-success" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
     <script>
       let html5QrcodeScanner = null;
       let isProcessing = false;
@@ -207,6 +253,12 @@
     }
 
     function startScanner() {
+      // Buka kunci Audio (Auto-play policy)
+      const aSuccess = document.getElementById('audio-success');
+      const aError = document.getElementById('audio-error');
+      if (aSuccess) { aSuccess.volume = 0; aSuccess.play().then(()=>{aSuccess.pause(); aSuccess.currentTime=0; aSuccess.volume=1;}).catch(e=>{}); }
+      if (aError) { aError.volume = 0; aError.play().then(()=>{aError.pause(); aError.currentTime=0; aError.volume=1;}).catch(e=>{}); }
+
       if(!API_URL) return alert("API_URL tidak ditemukan!");
       
       const locSelect = document.getElementById('kiosk-lokasi');
