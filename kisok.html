@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiosk Absensi QR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .scanner-active { border: 4px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+    #reader video { object-fit: cover; border-radius: 0.5rem; }
+    #loading-overlay { backdrop-filter: blur(5px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+  <!-- LOADING OVERLAY -->
+  <div id="loading-overlay" class="fixed inset-0 bg-white/80 z-50 flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
+    <h2 class="text-xl font-bold text-gray-700" id="loading-text">Memuat Sistem...</h2>
+  </div>
+
+  <!-- NOTIFICATION -->
+  <div id="notification" class="fixed top-10 left-1/2 transform -translate-x-1/2 z-50 w-11/12 max-w-lg transition-all duration-300 opacity-0 -translate-y-10 pointer-events-none">
+    <div id="notif-content" class="bg-white rounded-2xl shadow-2xl overflow-hidden border-2 flex items-center p-4">
+      <div id="notif-icon" class="flex-shrink-0 w-16 h-16 flex items-center justify-center rounded-full mr-4"></div>
+      <div>
+        <h3 id="notif-title" class="text-2xl font-bold mb-1">Status</h3>
+        <p id="notif-message" class="text-gray-600 font-medium"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN KIOSK CONTAINER -->
+  <div class="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row h-[85vh]">
+    
+    <!-- LEFT SIDE: CONTROLS & INFO -->
+    <div class="w-full md:w-1/3 bg-blue-600 p-8 text-white flex flex-col justify-between">
+      <div>
+        <div class="flex items-center gap-3 mb-8">
+          <div class="bg-white text-blue-600 p-2 rounded-lg">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+          </div>
+          <h1 class="text-2xl font-extrabold tracking-tight">QR KIOSK</h1>
+        </div>
+        
+        <p class="text-blue-100 mb-6 text-sm">Pilih lokasi kantor, lalu mulai scanner. Karyawan hanya perlu menunjukkan ID QR mereka ke kamera.</p>
+        
+        <div class="space-y-4" id="setup-panel">
+          <div>
+            <label class="block text-sm font-semibold text-blue-100 mb-1">Lokasi Kiosk Ini</label>
+            <select id="kiosk-lokasi" class="w-full bg-blue-700 border-2 border-blue-500 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white">
+              <option value="">Memuat lokasi...</option>
+            </select>
+          </div>
+          
+          <button id="btn-start" onclick="startScanner()" class="w-full bg-white text-blue-600 hover:bg-blue-50 font-bold text-lg py-4 rounded-xl shadow-lg transition transform hover:-translate-y-1">
+            Mulai Kiosk
+          </button>
+        </div>
+
+        <div id="running-panel" class="hidden space-y-4">
+          <div class="bg-blue-700 rounded-xl p-4 border border-blue-500">
+            <p class="text-xs text-blue-200 uppercase font-bold tracking-wider mb-1">Lokasi Aktif</p>
+            <p id="lbl-lokasi" class="font-bold text-lg truncate"></p>
+          </div>
+          <div class="bg-blue-700 rounded-xl p-4 border border-blue-500">
+            <p class="text-xs text-blue-200 uppercase font-bold tracking-wider mb-1">Status Scanner</p>
+            <div class="flex items-center gap-2">
+              <span class="relative flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              <p class="font-bold text-green-300">Berjalan</p>
+            </div>
+          </div>
+          <button onclick="stopScanner()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow transition mt-4">
+            Hentikan
+          </button>
+        </div>
+      </div>
+      
+      <div class="mt-8 pt-6 border-t border-blue-500/50">
+        <div class="text-center">
+          <p id="clock" class="text-4xl font-black tracking-tight font-mono mb-1">00:00:00</p>
+          <p id="date" class="text-blue-200 text-sm font-medium"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: SCANNER -->
+    <div class="w-full md:w-2/3 bg-gray-50 p-6 flex flex-col items-center justify-center relative">
+      <div id="idle-view" class="text-center text-gray-400 flex flex-col items-center">
+        <svg class="w-24 h-24 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        <p class="text-lg font-medium">Kamera tidak aktif</p>
+        <p class="text-sm">Klik Mulai Kiosk untuk mengaktifkan pemindai</p>
+      </div>
+
+      <div id="reader-container" class="w-full h-full hidden flex flex-col items-center justify-center">
+        <h2 class="text-2xl font-black text-gray-800 mb-6 text-center">ARAHKAN QR CODE KE KAMERA</h2>
+        <div class="bg-white p-2 rounded-2xl shadow-xl w-full max-w-md relative">
+          <div id="reader" class="w-full rounded-xl overflow-hidden"></div>
+          
+          <!-- Scan Overlay Feedback -->
+          <div id="scan-feedback" class="absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-3"></div>
+            <p class="font-bold text-gray-700">Memproses...</p>
+          </div>
+        </div>
+        <p class="mt-6 text-gray-500 font-medium text-center">Otomatis mendeteksi Masuk / Pulang</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIO ASSETS -->
+  <audio id="audio-success" src="https://actions.google.com/sounds/v1/ui/bell_ding.ogg" preload="auto"></audio>
+  <audio id="audio-error" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+  <script>
+    let html5QrcodeScanner = null;
+    let isProcessing = false;
+    let listLokasi = [];
+    
+    // Parse URL Params
+    const urlParams = new URLSearchParams(window.location.search);
+    const API_URL = urlParams.get('api');
+
+    // Init Waktu
+    setInterval(() => {
+      const d = new Date();
+      document.getElementById('clock').innerText = d.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+      document.getElementById('date').innerText = d.toLocaleDateString('id-ID', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+    }, 1000);
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Failsafe loading
+      setTimeout(() => {
+        const loading = document.getElementById('loading-overlay');
+        if(loading && !loading.classList.contains('opacity-0')) {
+           loading.classList.add('opacity-0', 'pointer-events-none');
+        }
+      }, 5000);
+
+      if(!API_URL) {
+          alert("Akses ditolak! Buka Kiosk ini dari Portal Admin Absensi.");
+          return;
+      }
+
+      try {
+        const response = await fetch(API_URL, {
+            method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+            body: JSON.stringify({ action: 'get_lokasi' })
+        });
+        const resData = await response.json();
+        
+        if (resData.status === 'success') {
+            listLokasi = resData.data;
+            const sel = document.getElementById('kiosk-lokasi');
+            sel.innerHTML = '';
+            listLokasi.forEach(loc => {
+              sel.innerHTML += '<option value="' + loc.id + '">' + loc.nama + '</option>';
+            });
+            document.getElementById('loading-overlay').classList.add('opacity-0', 'pointer-events-none');
+        } else {
+            alert("Gagal memuat data lokasi dari server.");
+        }
+      } catch(e) {
+          alert("Koneksi ke server gagal: " + e.toString());
+      }
+    });
+
+    function showNotification(type, title, msg) {
+      const notif = document.getElementById('notification');
+      const content = document.getElementById('notif-content');
+      const icon = document.getElementById('notif-icon');
+      
+      document.getElementById('notif-title').innerText = title;
+      document.getElementById('notif-message').innerText = msg;
+      
+      if(type === 'success') {
+        content.className = 'bg-white rounded-2xl shadow-2xl overflow-hidden border-2 border-green-500 flex items-center p-4';
+        icon.className = 'flex-shrink-0 w-16 h-16 flex items-center justify-center rounded-full mr-4 bg-green-100 text-green-600';
+        icon.innerHTML = '<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+        document.getElementById('audio-success').play().catch(e=>console.log(e));
+      } else {
+        content.className = 'bg-white rounded-2xl shadow-2xl overflow-hidden border-2 border-red-500 flex items-center p-4';
+        icon.className = 'flex-shrink-0 w-16 h-16 flex items-center justify-center rounded-full mr-4 bg-red-100 text-red-600';
+        icon.innerHTML = '<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        document.getElementById('audio-error').play().catch(e=>console.log(e));
+      }
+
+      notif.classList.remove('opacity-0', '-translate-y-10');
+      
+      setTimeout(() => {
+        notif.classList.add('opacity-0', '-translate-y-10');
+      }, 4000);
+    }
+
+    function startScanner() {
+      if(!API_URL) return alert("API_URL tidak ditemukan!");
+      
+      const locSelect = document.getElementById('kiosk-lokasi');
+      const lokasiId = locSelect.value;
+      if(!lokasiId) return alert("Pilih lokasi terlebih dahulu!");
+      
+      const locName = locSelect.options[locSelect.selectedIndex].text;
+      
+      document.getElementById('setup-panel').classList.add('hidden');
+      document.getElementById('running-panel').classList.remove('hidden');
+      document.getElementById('lbl-lokasi').innerText = locName;
+      
+      document.getElementById('idle-view').classList.add('hidden');
+      document.getElementById('reader-container').classList.remove('hidden');
+
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      
+      html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
+      .catch(err => {
+         alert("Gagal mengakses kamera: " + err);
+         stopScanner();
+      });
+    }
+
+    function stopScanner() {
+      if(html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+        }).catch(err => console.error(err));
+      }
+      document.getElementById('setup-panel').classList.remove('hidden');
+      document.getElementById('running-panel').classList.add('hidden');
+      document.getElementById('idle-view').classList.remove('hidden');
+      document.getElementById('reader-container').classList.add('hidden');
+    }
+
+    async function onScanSuccess(decodedText, decodedResult) {
+      if(isProcessing) return;
+      isProcessing = true;
+      
+      document.getElementById('scan-feedback').classList.remove('opacity-0');
+      html5QrcodeScanner.pause();
+
+      const lokasiId = document.getElementById('kiosk-lokasi').value;
+      
+      try {
+        const response = await fetch(API_URL, {
+            method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+            body: JSON.stringify({ action: 'proses_kiosk', userId: decodedText, lokasiId: lokasiId })
+        });
+        const resData = await response.json();
+
+        isProcessing = false;
+        document.getElementById('scan-feedback').classList.add('opacity-0');
+         
+        if(resData.status === 'success') {
+           showNotification('success', 'Berhasil!', resData.message);
+        } else {
+           showNotification('error', 'Gagal', resData.message);
+        }
+      } catch (err) {
+         isProcessing = false;
+         document.getElementById('scan-feedback').classList.add('opacity-0');
+         showNotification('error', 'Error Sistem', String(err));
+      }
+
+      // Resume scanner after 2.5 seconds
+      setTimeout(() => {
+         if(html5QrcodeScanner && html5QrcodeScanner.getState() === 2) { // 2 = PAUSED
+             html5QrcodeScanner.resume();
+         }
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
