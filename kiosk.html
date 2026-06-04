@@ -11,6 +11,11 @@
     .scanner-active { border: 4px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
     #reader video { object-fit: cover; border-radius: 0.5rem; }
     #loading-overlay { backdrop-filter: blur(5px); }
+  
+    /* Mirror the camera video feed */
+    #reader video {
+      transform: scaleX(-1);
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
