@@ -330,7 +330,7 @@
         // Auto-scroll history list from bottom to top
         setInterval(() => {
             const list = document.getElementById('recent-list');
-            if (list && list.children.length > 10) {
+            if (list && list.children.length > 1 && list.scrollHeight > list.clientHeight) {
                 const oldest = list.firstElementChild;
                 if(oldest) {
                     oldest.classList.add('animate-slide-up-remove');
