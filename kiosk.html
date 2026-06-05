@@ -53,6 +53,20 @@
     .corner-tr { top: 0; right: 0; border-width: 5px 5px 0 0; border-top-right-radius: 12px; }
     .corner-bl { bottom: 0; left: 0; border-width: 0 0 5px 5px; border-bottom-left-radius: 12px; }
     .corner-br { bottom: 0; right: 0; border-width: 0 5px 5px 0; border-bottom-right-radius: 12px; }
+  
+    @keyframes slideUpRemove {
+      to { margin-top: -70px; opacity: 0; }
+    }
+    .animate-slide-up-remove {
+      animation: slideUpRemove 0.4s ease forwards;
+    }
+    @keyframes slideInBottom {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-in-bottom {
+      animation: slideInBottom 0.4s ease forwards;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -210,7 +224,7 @@
              <span>Riwayat Hari Ini</span>
              <span class="text-xs bg-white text-blue-700 px-2 py-1 rounded-full font-black shadow-inner" id="recent-count">0</span>
           </div>
-          <ul id="recent-list" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+          <ul id="recent-list" class="flex-1 overflow-hidden p-4 space-y-3 bg-gray-50/50">
              <li id="recent-empty" class="text-center text-sm text-gray-400 py-4">Belum ada data absen</li>
           </ul>
       </div>
@@ -542,13 +556,13 @@
         await processAttendanceAPI(decodedText, lokasiId);
     }
 
-      async function processAttendanceAPI(userId, lokasiId) {
+      async function processAttendanceAPI(userId, lokasiId, fotoBase64 = null, mode = 'QR') {
         document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.remove('opacity-0'));
         try {
           const response = await fetch(API_URL, {
               method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
               redirect: "follow",
-              body: JSON.stringify({ action: 'proses_kiosk', userId: userId, lokasiId: lokasiId })
+              body: JSON.stringify({ action: 'proses_kiosk', userId: userId, lokasiId: lokasiId, fotoBase64: fotoBase64, mode: mode })
           });
           const resData = await response.json();
   
@@ -577,12 +591,17 @@
              
              li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p><p class="text-xs text-gray-500">' + tipe + ' &bull; ' + waktu + '</p></div>';
              
-             list.insertBefore(li, list.firstChild);
+             li.classList.add('animate-slide-in-bottom');
+               list.appendChild(li); // Muncul dari bawah
              
              const countEl = document.getElementById('recent-count');
              countEl.innerText = parseInt(countEl.innerText) + 1;
              
-             if(list.children.length > 50) list.lastChild.remove();
+             if(list.children.length > 5) {
+                   const oldest = list.firstChild;
+                   oldest.classList.add('animate-slide-up-remove');
+                   setTimeout(() => oldest.remove(), 400);
+               }
 
         } else {
            showNotification('error', 'Gagal', resData.message);
