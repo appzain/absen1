@@ -52,11 +52,13 @@
     .corner-br { bottom: 0; right: 0; border-width: 0 5px 5px 0; border-bottom-right-radius: 12px; }
   
     @keyframes slideUpRemove {
-      to { margin-top: -70px; opacity: 0; }
-    }
+        to { max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; opacity: 0; border-width: 0; }
+      }
     .animate-slide-up-remove {
-      animation: slideUpRemove 0.4s ease forwards;
-    }
+        max-height: 150px;
+        animation: slideUpRemove 0.5s ease forwards;
+        overflow: hidden;
+      }
     @keyframes slideInBottom {
       from { transform: translateY(20px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -328,7 +330,7 @@
         // Auto-scroll history list from bottom to top
         setInterval(() => {
             const list = document.getElementById('recent-list');
-            if (list && list.children.length > 5) {
+            if (list && list.children.length > 10) {
                 const oldest = list.firstElementChild;
                 if(oldest) {
                     oldest.classList.add('animate-slide-up-remove');
@@ -404,7 +406,7 @@
                   const emptyMsg = document.getElementById('recent-empty');
                   if(emptyMsg) emptyMsg.remove();
                   
-                  resHist.data.forEach(item => {
+                  resHist.data.forEach((item, idx) => {
                       const li = document.createElement('li');
                       li.className = "flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-slide-in-bottom";
                       
@@ -416,7 +418,7 @@
                       if (item.masuk && !item.pulang) iconStr = '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>';
                       if (item.pulang) iconStr = '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
                       
-                      li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + item.nama + '</p>' + masukHtml + pulangHtml + '</div>';
+                      li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + (idx + 1) + '. ' + item.nama + '</p>' + masukHtml + pulangHtml + '</div>';
                       list.appendChild(li);
                   });
                   document.getElementById('recent-count').innerText = resHist.data.length;
@@ -707,7 +709,10 @@
                const li = document.createElement('li');
                li.setAttribute('data-nama', nama);
                li.className = "flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-slide-in-bottom";
-               li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p>' + masukHtml + pulangHtml + '</div>';
+               
+               let personNumber = existingLi ? (existingLi.innerHTML.match(/<p class="font-bold[^>]*>(\d+)\.\s/) ? existingLi.innerHTML.match(/<p class="font-bold[^>]*>(\d+)\.\s/)[1] : (parseInt(document.getElementById('recent-count').innerText) || 1)) : (parseInt(document.getElementById('recent-count').innerText) + 1 || 1);
+               li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + personNumber + '. ' + nama + '</p>' + masukHtml + pulangHtml + '</div>';
+
                
                list.appendChild(li);
                
