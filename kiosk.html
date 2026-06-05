@@ -654,7 +654,7 @@
                let actualTipe = resData.tipe || (resData.message && resData.message.toLowerCase().includes('pulang') ? 'Pulang' : 'Masuk');
                const tipeColored = '<span class="' + (actualTipe === 'Masuk' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') + '">' + actualTipe + '</span>';
                
-               let iconStr = actualTipe === 'Masuk' ? '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>' : '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
+               iconStr = actualTipe === 'Masuk' ? '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>' : '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
                
                li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p><p class="text-xs text-gray-500">' + tipeColored + ' &bull; ' + waktu + '</p></div>';
 
