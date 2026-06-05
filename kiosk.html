@@ -470,21 +470,25 @@
         lastScannedCode = decodedText;
         lastScannedTime = now;
         
-        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.remove('opacity-0');
+        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.remove('opacity-0'));
         // html5QrcodeScanner.pause(); Dihapus agar kamera terus aktif
 
-      const lokasiId = document.getElementById('kiosk-lokasi').value;
-      
-      try {
-        const response = await fetch(API_URL, {
-            method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
-            redirect: "follow",
-            body: JSON.stringify({ action: 'proses_kiosk', userId: decodedText, lokasiId: lokasiId })
-        });
-        const resData = await response.json();
+        const lokasiId = document.getElementById('kiosk-lokasi').value;
+        await processAttendanceAPI(decodedText, lokasiId);
+    }
 
-        isProcessing = false;
-        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0');
+      async function processAttendanceAPI(userId, lokasiId) {
+        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.remove('opacity-0'));
+        try {
+          const response = await fetch(API_URL, {
+              method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+              redirect: "follow",
+              body: JSON.stringify({ action: 'proses_kiosk', userId: userId, lokasiId: lokasiId })
+          });
+          const resData = await response.json();
+  
+          isProcessing = false;
+          document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0'));
          
         if(resData.status === 'success') {
              const audioSuccess = document.getElementById('audio-success');
@@ -492,12 +496,12 @@
              showNotification('success', 'Berhasil!', resData.message);
         } else {
            showNotification('error', 'Gagal', resData.message);
+          }
+        } catch (err) {
+           isProcessing = false;
+           document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0'));
+           showNotification('error', 'Error Sistem', String(err));
         }
-      } catch (err) {
-         isProcessing = false;
-         document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0');
-         showNotification('error', 'Error Sistem', String(err));
-      }
 
       // Resume block dihapus agar tidak pause
     }
