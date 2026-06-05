@@ -407,8 +407,17 @@
                   resHist.data.forEach(item => {
                       const li = document.createElement('li');
                       li.className = "flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-slide-in-bottom";
-                      let iconStr = item.tipe === 'Masuk' ? '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>' : '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
-                      li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + item.nama + '</p><p class="text-xs text-gray-500">' + item.tipe + ' &bull; ' + item.waktu + '</p></div>';
+                      
+                      li.setAttribute('data-nama', item.nama);
+                      let masukHtml = item.masuk ? '<p class="text-xs text-gray-500"><span class="text-green-600 font-semibold">Masuk</span> &bull; ' + item.masuk + '</p>' : '';
+                      let pulangHtml = item.pulang ? '<p class="text-xs text-gray-500"><span class="text-red-600 font-semibold">Pulang</span> &bull; ' + item.pulang + '</p>' : '';
+                      
+                      let iconStr = '<div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="fas fa-user-clock"></i></div>';
+                      if (item.masuk && !item.pulang) iconStr = '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>';
+                      if (item.pulang) iconStr = '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
+                      
+                      li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + item.nama + '</p>' + masukHtml + pulangHtml + '</div>';
+ ' + item.waktu + '</p></div>';
                       list.appendChild(li);
                   });
                   document.getElementById('recent-count').innerText = resHist.data.length;
@@ -659,6 +668,7 @@
              const nama = resData.nama || decodedText;
              const tipe = resData.tipe || 'Absen';
              
+               
                const now = new Date();
                const dateStr = String(now.getDate()).padStart(2, '0') + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
                const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', second:'2-digit'}).replace(/:/g, '.');
@@ -666,20 +676,49 @@
                let fallbackWaktu = dateStr + ' &bull; ' + timeStr;
                const waktu = resData.waktu || fallbackWaktu;
                
-               // Tebak tipe dari message kalau server ga return tipe
                let actualTipe = resData.tipe || (resData.message && resData.message.toLowerCase().includes('pulang') ? 'Pulang' : 'Masuk');
-               const tipeColored = '<span class="' + (actualTipe === 'Masuk' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') + '">' + actualTipe + '</span>';
                
-               iconStr = actualTipe === 'Masuk' ? '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>' : '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
+               let existingLi = document.querySelector('#recent-list li[data-nama="' + nama + '"]');
+               let masukHtml = '';
+               let pulangHtml = '';
                
-               li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p><p class="text-xs text-gray-500">' + tipeColored + ' &bull; ' + waktu + '</p></div>';
+               if (existingLi) {
+                   const htmlContent = existingLi.innerHTML;
+                   if (htmlContent.includes('Masuk</span>')) {
+                       let start = htmlContent.indexOf('<span class="text-green-600');
+                       let end = htmlContent.indexOf('</p>', start);
+                       masukHtml = '<p class="text-xs text-gray-500">' + htmlContent.substring(start, end) + '</p>';
+                   }
+                   if (htmlContent.includes('Pulang</span>')) {
+                       let start = htmlContent.indexOf('<span class="text-red-600');
+                       let end = htmlContent.indexOf('</p>', start);
+                       pulangHtml = '<p class="text-xs text-gray-500">' + htmlContent.substring(start, end) + '</p>';
+                   }
+                   existingLi.remove();
+               }
 
-             
-             li.classList.add('animate-slide-in-bottom');
-               list.appendChild(li); // Muncul dari bawah
-             
-             const countEl = document.getElementById('recent-count');
-             countEl.innerText = parseInt(countEl.innerText) + 1;
+               if (actualTipe === 'Masuk') {
+                   masukHtml = '<p class="text-xs text-gray-500"><span class="text-green-600 font-semibold">Masuk</span> &bull; ' + waktu + '</p>';
+               } else {
+                   pulangHtml = '<p class="text-xs text-gray-500"><span class="text-red-600 font-semibold">Pulang</span> &bull; ' + waktu + '</p>';
+               }
+               
+               let iconStr = '<div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="fas fa-user-clock"></i></div>';
+               if (masukHtml && !pulangHtml) iconStr = '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>';
+               if (pulangHtml) iconStr = '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
+               
+               const li = document.createElement('li');
+               li.setAttribute('data-nama', nama);
+               li.className = "flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-slide-in-bottom";
+               li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p>' + masukHtml + pulangHtml + '</div>';
+               
+               list.appendChild(li);
+               
+               if (!existingLi) {
+                   const countEl = document.getElementById('recent-count');
+                   countEl.innerText = parseInt(countEl.innerText) + 1;
+               }
+
              
              
 
