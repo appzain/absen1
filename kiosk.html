@@ -341,6 +341,7 @@
         const resData = await response.json();
         
         if (resData.status === 'success') {
+                playSuccessSound();
             logDebug('Populating lokasi... Number of locations: ' + resData.data.length);
             listLokasi = resData.data;
             const sel = document.getElementById('kiosk-lokasi');
