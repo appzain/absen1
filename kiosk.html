@@ -442,8 +442,8 @@
             document.getElementById('reader-container').classList.add('flex');
             
             html5QrcodeScanner = new Html5Qrcode("reader");
-            const config = { fps: 30 };
-            html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
+            const config = { fps: 10, qrbox: { width: 300, height: 300 } };
+              html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
             .catch(err => {
                alert("Gagal mengakses kamera: " + err);
                stopScanner();
