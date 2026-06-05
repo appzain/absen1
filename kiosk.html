@@ -324,6 +324,22 @@
             } catch(e) { console.log(e); }
         }
 
+        
+        // Auto-scroll history list from bottom to top
+        setInterval(() => {
+            const list = document.getElementById('recent-list');
+            if (list && list.children.length > 5) {
+                const oldest = list.firstElementChild;
+                if(oldest) {
+                    oldest.classList.add('animate-slide-up-remove');
+                    setTimeout(() => {
+                        oldest.classList.remove('animate-slide-up-remove');
+                        list.appendChild(oldest);
+                    }, 400);
+                }
+            }
+        }, 3000);
+
         let isProcessing = false;
       let lastScannedCode = null;
       let lastScannedTime = 0;
@@ -665,11 +681,7 @@
              const countEl = document.getElementById('recent-count');
              countEl.innerText = parseInt(countEl.innerText) + 1;
              
-             if(list.children.length > 5) {
-                   const oldest = list.firstChild;
-                   oldest.classList.add('animate-slide-up-remove');
-                   setTimeout(() => oldest.remove(), 400);
-               }
+             
 
         } else {
            showNotification('error', 'Gagal', resData.message);
