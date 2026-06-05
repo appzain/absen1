@@ -379,6 +379,8 @@
       
       document.getElementById('setup-panel').classList.add('hidden');
       document.getElementById('running-panel').classList.remove('hidden');
+          document.getElementById('recent-panel').classList.remove('hidden');
+          document.getElementById('recent-panel').classList.add('flex');
       document.getElementById('lbl-lokasi').innerText = locName;
       
       document.getElementById('idle-view').classList.add('hidden');
@@ -461,7 +463,17 @@
                                    statusEl.innerText = "Wajah Terdeteksi!";
                                    
                                    const lokasiId = document.getElementById('kiosk-lokasi').value;
-                                   await processAttendanceAPI(bestMatch.label, lokasiId);
+                                   
+                                     const videoEl = document.getElementById('face-video');
+                                     let fotoBase64 = null;
+                                     if(videoEl) {
+                                         const canvas = document.createElement('canvas');
+                                         canvas.width = videoEl.videoWidth;
+                                         canvas.height = videoEl.videoHeight;
+                                         canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                                         fotoBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                                     }
+                                     await processAttendanceAPI(bestMatch.label, lokasiId, fotoBase64, 'WAJAH');
                                    statusEl.innerText = "Mencari Wajah...";
                                }
                            }
@@ -492,6 +504,8 @@
 
         document.getElementById('setup-panel').classList.remove('hidden');
         document.getElementById('running-panel').classList.add('hidden');
+          document.getElementById('recent-panel').classList.add('hidden');
+          document.getElementById('recent-panel').classList.remove('flex');
         document.getElementById('idle-view').classList.remove('hidden');
         document.getElementById('reader-container').classList.add('hidden');
         document.getElementById('face-container').classList.add('hidden');
@@ -534,6 +548,31 @@
              const audioSuccess = document.getElementById('audio-success');
              if(audioSuccess) audioSuccess.play().catch(e => console.log('Audio error:', e));
              showNotification('success', 'Berhasil!', resData.message);
+             
+             // Tambahkan ke panel kanan
+             const list = document.getElementById('recent-list');
+             const emptyMsg = document.getElementById('recent-empty');
+             if(emptyMsg) emptyMsg.remove();
+             
+             const li = document.createElement('li');
+             li.className = "flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm";
+             
+             let iconStr = resData.tipe === 'Masuk' ? '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-in-alt"></i></div>' : '<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><i class="fas fa-sign-out-alt"></i></div>';
+             if(!resData.tipe) iconStr = '<div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="fas fa-check"></i></div>';
+             
+             const nama = resData.nama || decodedText;
+             const tipe = resData.tipe || 'Absen';
+             const waktu = resData.waktu || new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+             
+             li.innerHTML = iconStr + '<div class="flex-1 min-w-0"><p class="font-bold text-gray-800 text-sm truncate">' + nama + '</p><p class="text-xs text-gray-500">' + tipe + ' &bull; ' + waktu + '</p></div>';
+             
+             list.insertBefore(li, list.firstChild);
+             
+             const countEl = document.getElementById('recent-count');
+             countEl.innerText = parseInt(countEl.innerText) + 1;
+             
+             if(list.children.length > 50) list.lastChild.remove();
+
         } else {
            showNotification('error', 'Gagal', resData.message);
           }
