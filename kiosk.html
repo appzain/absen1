@@ -283,8 +283,8 @@
             }
         }
       let isProcessing = false;
-      let lastScannedCode = '';
-      let lastScannedTime = 0;
+      let userCooldowns = {};
+      const COOLDOWN_MS = 60000 * 5; // 5 Menit Anti-Double Scan
     let listLokasi = [];
     
     // Parse URL Params
@@ -448,7 +448,7 @@
           }
 
           statusEl.innerText = "Mengaktifkan Kamera...";
-          navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
           .then(stream => {
               videoStream = stream;
               video.srcObject = stream;
@@ -459,18 +459,17 @@
                    faceScanInterval = setInterval(async () => {
                        if(isProcessing || !faceMatcher) return;
                        try {
-                           const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                           const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
                            
                            if(detections) {
                                const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
                                
                                if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.50) {
                                    const now = Date.now();
-                                   if (bestMatch.label === lastScannedCode && (now - lastScannedTime) < 5000) return;
-                                   
-                                   isProcessing = true;
-                                   lastScannedCode = bestMatch.label;
-                                   lastScannedTime = now;
+                                     if (userCooldowns[bestMatch.label] && (now - userCooldowns[bestMatch.label]) < COOLDOWN_MS) return;
+                                     
+                                     isProcessing = true;
+                                     userCooldowns[bestMatch.label] = now;
                                    
                                    statusEl.innerText = "Wajah Terdeteksi!";
                                    
@@ -490,7 +489,7 @@
                                }
                            }
                        } catch(e){}
-                   }, 300); // 3 FPS
+                   }, 100); // 10 FPS (Optimized)
               };
           })
           .catch(err => {
