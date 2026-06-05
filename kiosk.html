@@ -92,6 +92,15 @@
         
         <div class="space-y-4" id="setup-panel">
           <div>
+            
+            <div>
+              <label class="block text-sm font-semibold text-blue-100 mb-1">Mode Deteksi</label>
+              <div class="flex border-2 border-blue-400 rounded-xl overflow-hidden shadow-lg">
+                <button id="btn-mode-qr" onclick="setMode('QR')" class="flex-1 py-3 bg-blue-100 text-blue-900 font-black transition cursor-pointer">QR Code</button>
+                <button id="btn-mode-wajah" onclick="setMode('WAJAH')" class="flex-1 py-3 bg-blue-800 text-blue-200 font-bold transition cursor-pointer">Wajah (AI)</button>
+              </div>
+            </div>
+            <br>
             <label class="block text-sm font-semibold text-blue-100 mb-1">Lokasi Kiosk Ini</label>
             <select id="kiosk-lokasi" class="w-full bg-blue-700 border-2 border-blue-500 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white">
               <option value="">Memuat lokasi...</option>
@@ -195,6 +204,24 @@
   <audio id="audio-error" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
     <script>
+
+        window.addEventListener('error', function(e) {
+          document.getElementById('debug-log').style.display = 'block';
+          document.getElementById('debug-log').innerHTML += '<p style="color:red">ERROR: ' + e.message + ' at ' + e.filename + ':' + e.lineno + '</p>';
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+          document.getElementById('debug-log').style.display = 'block';
+          document.getElementById('debug-log').innerHTML += '<p style="color:orange">PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p>';
+        });
+        function logDebug(msg) {
+           const dbg = document.getElementById('debug-log');
+           if(dbg) {
+               dbg.style.display = 'block';
+               dbg.innerHTML += '<p>' + msg + '</p>';
+           }
+           console.log(msg);
+        }
+    
       let html5QrcodeScanner = null;
         let kioskMode = 'QR';
         let faceModelsLoaded = false;
@@ -206,9 +233,13 @@
         function setMode(mode) {
            kioskMode = mode;
            if(mode === 'QR') {
-              document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-blue-600 text-white font-bold transition";
-              document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-white text-blue-600 font-bold transition";
+              document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-blue-100 text-blue-900 font-black transition cursor-pointer";
+              document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-blue-800 text-blue-200 font-bold transition cursor-pointer";
            } else {
+              document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-blue-800 text-blue-200 font-bold transition cursor-pointer";
+              document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-blue-100 text-blue-900 font-black transition cursor-pointer";
+           }
+        } else {
               document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-white text-blue-600 font-bold transition";
               document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-blue-600 text-white font-bold transition";
            }
@@ -216,11 +247,13 @@
 
         async function loadFaceData() {
             try {
-                const response = await fetch(API_URL, {
+                logDebug('Fetching API: ' + API_URL);
+        const response = await fetch(API_URL, {
                     method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({ action: 'get_all_biometrik' })
                 });
                 const resData = await response.json();
+        logDebug('API response received: ' + resData.status);
                 if(resData.status === 'success') {
                     labeledFaceDescriptors = [];
                     resData.data.forEach(item => {
@@ -258,15 +291,22 @@
     }, 1000);
 
     document.addEventListener('DOMContentLoaded', async function() {
+  logDebug('DOM Loaded, checking API_URL...');
+
       // Failsafe loading
       setTimeout(() => {
         const loading = document.getElementById('loading-overlay');
         if(loading && !loading.classList.contains('opacity-0')) {
+           logDebug('Failsafe triggered! Forcing overlay hidden.');
            loading.classList.add('opacity-0', 'pointer-events-none');
+           loading.style.display = 'none';
+        } else {
+           logDebug('Failsafe check: Overlay already hidden.');
         }
       }, 5000);
 
       if(!API_URL) {
+          logDebug('API_URL is missing. Halting.');
           alert("Akses ditolak! Buka Kiosk ini dari Portal Admin Absensi.");
           return;
       }
@@ -280,6 +320,7 @@
         const resData = await response.json();
         
         if (resData.status === 'success') {
+            logDebug('Populating lokasi... Number of locations: ' + resData.data.length);
             listLokasi = resData.data;
             const sel = document.getElementById('kiosk-lokasi');
             sel.innerHTML = '';
@@ -287,10 +328,13 @@
               sel.innerHTML += '<option value="' + loc.id + '">' + loc.nama + '</option>';
             });
             document.getElementById('loading-overlay').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 500);
+            logDebug('Loading overlay hidden successfully.');
         } else {
             alert("Gagal memuat data lokasi dari server.");
         }
       } catch(e) {
+          logDebug('Fetch Catch block hit: ' + e.toString());
           alert("Koneksi ke server gagal: " + e.toString());
       }
     });
