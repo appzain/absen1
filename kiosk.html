@@ -12,10 +12,7 @@
     #reader video { object-fit: cover; border-radius: 0.5rem; }
     #loading-overlay { backdrop-filter: blur(5px); }
   
-    /* Mirror the camera video feed */
-    #reader video {
-      transform: scaleX(-1);
-    }
+    
   
     /* Animasi Scanner Frame & Laser */
     .scan-laser {
@@ -442,7 +439,7 @@
             document.getElementById('reader-container').classList.add('flex');
             
             html5QrcodeScanner = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 300, height: 300 } };
+            const config = { fps: 10, qrbox: 250, disableFlip: false };
               html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
             .catch(err => {
                alert("Gagal mengakses kamera: " + err);
