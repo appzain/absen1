@@ -54,6 +54,7 @@
     .corner-bl { bottom: 0; left: 0; border-width: 0 0 5px 5px; border-bottom-left-radius: 12px; }
     .corner-br { bottom: 0; right: 0; border-width: 0 5px 5px 0; border-bottom-right-radius: 12px; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
 
@@ -139,6 +140,30 @@
         <p class="text-sm">Klik Mulai Kiosk untuk mengaktifkan pemindai</p>
       </div>
 
+      
+        <div id="face-container" class="w-full h-full hidden flex-col items-center justify-center">
+          <h2 class="text-2xl font-black text-gray-800 mb-6 text-center">ARAHKAN WAJAH KE KAMERA</h2>
+          <div class="bg-white p-2 rounded-2xl shadow-xl w-full max-w-md relative">
+            <div class="relative rounded-xl overflow-hidden bg-black flex items-center justify-center" style="min-height:300px;">
+              <video id="kiosk-video" autoplay muted playsinline class="w-full h-auto" style="transform: scaleX(-1);"></video>
+              <canvas id="kiosk-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none" style="transform: scaleX(-1);"></canvas>
+              
+              <div class="scan-frame-overlay">
+                <div class="scan-corner corner-tl"></div>
+                <div class="scan-corner corner-tr"></div>
+                <div class="scan-corner corner-bl"></div>
+                <div class="scan-corner corner-br"></div>
+              </div>
+              <div id="face-scan-status" class="absolute bottom-4 left-0 right-0 text-center font-bold text-white drop-shadow-md z-10 px-2">Menunggu...</div>
+              
+              <div id="scan-feedback" class="scan-feedback-el absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-opacity duration-300">
+                  <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+                  <p class="text-blue-800 font-bold animate-pulse text-lg tracking-wider">Memproses Wajah...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       <div id="reader-container" class="w-full h-full hidden flex flex-col items-center justify-center">
         <h2 class="text-2xl font-black text-gray-800 mb-6 text-center">ARAHKAN QR CODE KE KAMERA</h2>
         <div class="bg-white p-2 rounded-2xl shadow-xl w-full max-w-md relative">
@@ -155,7 +180,7 @@
             </div>
           
           <!-- Scan Overlay Feedback -->
-          <div id="scan-feedback" class="absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-opacity duration-300">
+          <div id="scan-feedback" class="scan-feedback-el absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-opacity duration-300">
             <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-3"></div>
             <p class="font-bold text-gray-700">Memproses...</p>
           </div>
@@ -171,6 +196,51 @@
 
     <script>
       let html5QrcodeScanner = null;
+        let kioskMode = 'QR';
+        let faceModelsLoaded = false;
+        let faceMatcher = null;
+        let labeledFaceDescriptors = [];
+        let faceScanInterval = null;
+        let videoStream = null;
+
+        function setMode(mode) {
+           kioskMode = mode;
+           if(mode === 'QR') {
+              document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-blue-600 text-white font-bold transition";
+              document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-white text-blue-600 font-bold transition";
+           } else {
+              document.getElementById('btn-mode-qr').className = "flex-1 py-3 bg-white text-blue-600 font-bold transition";
+              document.getElementById('btn-mode-wajah').className = "flex-1 py-3 bg-blue-600 text-white font-bold transition";
+           }
+        }
+
+        async function loadFaceData() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: 'get_all_biometrik' })
+                });
+                const resData = await response.json();
+                if(resData.status === 'success') {
+                    labeledFaceDescriptors = [];
+                    resData.data.forEach(item => {
+                        try {
+                           const descArray = Array.isArray(item.descriptor) ? item.descriptor : JSON.parse(item.descriptor);
+                           // Pastikan itu array 128 float
+                           if(descArray && descArray.length === 128) {
+                               const float32Array = new Float32Array(descArray);
+                               labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(item.userId, [float32Array]));
+                           }
+                        } catch(e){}
+                    });
+                    if(labeledFaceDescriptors.length > 0) {
+                       faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.50);
+                    }
+                }
+            } catch(err) {
+                console.error("Gagal load biometrik", err);
+            }
+        }
       let isProcessing = false;
       let lastScannedCode = '';
       let lastScannedTime = 0;
@@ -272,31 +342,120 @@
       document.getElementById('lbl-lokasi').innerText = locName;
       
       document.getElementById('idle-view').classList.add('hidden');
-      document.getElementById('reader-container').classList.remove('hidden');
-
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      
-      // FPS ditingkatkan menjadi 30 agar sangat responsif, dan qrbox dihilangkan agar bisa scan di seluruh area kamera (full frame)
-        const config = { fps: 30 };
-      
-      html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
-      .catch(err => {
-         alert("Gagal mengakses kamera: " + err);
-         stopScanner();
-      });
-    }
-
-    function stopScanner() {
-      if(html5QrcodeScanner) {
-        html5QrcodeScanner.stop().then(() => {
-          html5QrcodeScanner.clear();
-        }).catch(err => console.error(err));
+        
+        if (kioskMode === 'QR') {
+            document.getElementById('face-container').classList.add('hidden');
+            document.getElementById('reader-container').classList.remove('hidden');
+            document.getElementById('reader-container').classList.add('flex');
+            
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 30 };
+            html5QrcodeScanner.start({ facingMode: "user" }, config, onScanSuccess)
+            .catch(err => {
+               alert("Gagal mengakses kamera: " + err);
+               stopScanner();
+            });
+        } else {
+            document.getElementById('reader-container').classList.add('hidden');
+            document.getElementById('reader-container').classList.remove('flex');
+            document.getElementById('face-container').classList.remove('hidden');
+            document.getElementById('face-container').classList.add('flex');
+            startFaceScanner();
+        }
       }
-      document.getElementById('setup-panel').classList.remove('hidden');
-      document.getElementById('running-panel').classList.add('hidden');
-      document.getElementById('idle-view').classList.remove('hidden');
-      document.getElementById('reader-container').classList.add('hidden');
-    }
+
+      async function startFaceScanner() {
+          const video = document.getElementById('kiosk-video');
+          const canvas = document.getElementById('kiosk-canvas');
+          const statusEl = document.getElementById('face-scan-status');
+
+          if(!faceModelsLoaded) {
+              statusEl.innerText = "Mengunduh AI Wajah (Mohon Tunggu)...";
+              const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+              try {
+                  await Promise.all([
+                      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                  ]);
+                  faceModelsLoaded = true;
+              } catch(e) {
+                  statusEl.innerText = "Gagal memuat model AI!";
+                  return;
+              }
+          }
+
+          statusEl.innerText = "Mengunduh Data Wajah Karyawan...";
+          await loadFaceData();
+
+          if(!faceMatcher) {
+              statusEl.innerText = "Data Wajah Kosong/Gagal Dimuat.";
+              // Continue anyway so video works, but detection will fail
+          }
+
+          statusEl.innerText = "Mengaktifkan Kamera...";
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+          .then(stream => {
+              videoStream = stream;
+              video.srcObject = stream;
+              video.onloadedmetadata = () => {
+                   statusEl.innerText = faceMatcher ? "Mencari Wajah..." : "Mode Wajah Tidak Tersedia (0 Data)";
+                   faceapi.matchDimensions(canvas, video);
+                   
+                   faceScanInterval = setInterval(async () => {
+                       if(isProcessing || !faceMatcher) return;
+                       try {
+                           const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                           
+                           if(detections) {
+                               const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
+                               
+                               if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.50) {
+                                   const now = Date.now();
+                                   if (bestMatch.label === lastScannedCode && (now - lastScannedTime) < 5000) return;
+                                   
+                                   isProcessing = true;
+                                   lastScannedCode = bestMatch.label;
+                                   lastScannedTime = now;
+                                   
+                                   statusEl.innerText = "Wajah Terdeteksi!";
+                                   
+                                   const lokasiId = document.getElementById('kiosk-lokasi').value;
+                                   await processAttendanceAPI(bestMatch.label, lokasiId);
+                                   statusEl.innerText = "Mencari Wajah...";
+                               }
+                           }
+                       } catch(e){}
+                   }, 300); // 3 FPS
+              };
+          })
+          .catch(err => {
+              statusEl.innerText = "Akses Kamera Ditolak!";
+          });
+      }
+
+      function stopScanner() {
+        if(html5QrcodeScanner) {
+          html5QrcodeScanner.stop().then(() => {
+            html5QrcodeScanner.clear();
+          }).catch(err => console.error(err));
+        }
+        
+        if(faceScanInterval) {
+            clearInterval(faceScanInterval);
+            faceScanInterval = null;
+        }
+        if(videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+        }
+
+        document.getElementById('setup-panel').classList.remove('hidden');
+        document.getElementById('running-panel').classList.add('hidden');
+        document.getElementById('idle-view').classList.remove('hidden');
+        document.getElementById('reader-container').classList.add('hidden');
+        document.getElementById('face-container').classList.add('hidden');
+      }
 
     async function onScanSuccess(decodedText, decodedResult) {
         if(isProcessing) return;
@@ -311,7 +470,7 @@
         lastScannedCode = decodedText;
         lastScannedTime = now;
         
-        document.getElementById('scan-feedback').classList.remove('opacity-0');
+        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.remove('opacity-0');
         // html5QrcodeScanner.pause(); Dihapus agar kamera terus aktif
 
       const lokasiId = document.getElementById('kiosk-lokasi').value;
@@ -325,7 +484,7 @@
         const resData = await response.json();
 
         isProcessing = false;
-        document.getElementById('scan-feedback').classList.add('opacity-0');
+        document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0');
          
         if(resData.status === 'success') {
              const audioSuccess = document.getElementById('audio-success');
@@ -336,7 +495,7 @@
         }
       } catch (err) {
          isProcessing = false;
-         document.getElementById('scan-feedback').classList.add('opacity-0');
+         document.querySelectorAll('.scan-feedback-el').forEach(el => el.classList.add('opacity-0');
          showNotification('error', 'Error Sistem', String(err));
       }
 
